@@ -9,14 +9,15 @@ import android.view.SurfaceView
 class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback, Runnable {
     private var gameThread: Thread? = null
     @Volatile private var isRunning = false
+    @Volatile private var assetsLoaded = false
 
     private var bgBitmap: Bitmap? = null
     private var knight: Knight? = null
     private var hornet: Hornet? = null
     private val spells = mutableListOf<Spell>()
 
-    private enum class GameState { MENU, PLAYING, VICTORY, GAME_OVER }
-    private var gameState = GameState.MENU
+    private enum class GameState { LOADING, MENU, PLAYING, VICTORY, GAME_OVER }
+    private var gameState = GameState.LOADING
 
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val uiPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true }
@@ -45,7 +46,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        initGame()
+        if (!assetsLoaded) {
+            Thread {
+                loadAssets()
+                assetsLoaded = true
+                gameState = GameState.MENU
+            }.start()
+        }
         resume()
     }
 
@@ -55,10 +62,10 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         pause()
     }
 
-    private fun initGame() {
-        bgBitmap = SpriteHelper.loadBitmap(context, "background.png")
-        val knightSheet = SpriteHelper.loadBitmap(context, "knight.png")
-        val hornetSheet = SpriteHelper.loadBitmap(context, "hornet.png")
+    private fun loadAssets() {
+        bgBitmap = SpriteHelper.loadBitmap(context, "background.png", sampleSize = 1)
+        val knightSheet = SpriteHelper.loadBitmap(context, "knight.png", sampleSize = 2)
+        val hornetSheet = SpriteHelper.loadBitmap(context, "hornet.png", sampleSize = 2)
 
         knight = Knight(knightSheet)
         hornet = Hornet(hornetSheet)
@@ -89,6 +96,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             val groundY = height * 0.82f
 
             when (gameState) {
+                GameState.LOADING -> drawLoading(canvas)
                 GameState.MENU -> drawMenu(canvas)
                 GameState.PLAYING -> {
                     updateGame(groundY)
@@ -237,6 +245,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         canvas.drawText(text, rect.centerX() - textW / 2f, rect.centerY() + 10f, uiPaint)
     }
 
+    private fun drawLoading(canvas: Canvas) {
+        canvas.drawColor(Color.rgb(8, 10, 15))
+        uiPaint.color = Color.rgb(0, 229, 255)
+        uiPaint.textSize = 40f
+        val msg = "ENTERING HALLOWNEST..."
+        canvas.drawText(msg, width / 2f - uiPaint.measureText(msg) / 2f, height / 2f, uiPaint)
+    }
+
     private fun drawMenu(canvas: Canvas) {
         canvas.drawColor(Color.rgb(10, 12, 18))
         uiPaint.color = Color.WHITE
@@ -268,8 +284,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val btnH = 110f
 
         if (gameState != GameState.PLAYING) {
-            if (action == MotionEvent.ACTION_DOWN) {
-                initGame()
+            if (action == MotionEvent.ACTION_DOWN && assetsLoaded) {
                 gameState = GameState.PLAYING
             }
             return true

@@ -3,7 +3,7 @@ package com.ayush.minihk
 import android.graphics.*
 import kotlin.random.Random
 
-class Hornet(rawSheet: Bitmap?) {
+class Hornet(sheet: Bitmap?) {
     var x = 1350f
     var y = 500f
     var vx = 0f
@@ -31,8 +31,7 @@ class Hornet(rawSheet: Bitmap?) {
     enum class State { IDLE, PREPARE_JUMP, DIVE_ATTACK, THROW_NEEDLE, RETREAT }
 
     init {
-        if (rawSheet != null) {
-            val sheet = SpriteHelper.removeChromaKey(rawSheet, Color.rgb(0, 128, 128))
+        if (sheet != null) {
             idleFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.01f, 0.12f, 0.035f)
             throwFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.44f, 0.12f, 0.035f)
             diveFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.64f, 0.14f, 0.040f)
