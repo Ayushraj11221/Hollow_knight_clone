@@ -2,6 +2,7 @@ package com.ayush.minihk
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
@@ -15,23 +16,24 @@ class Knight(private val sheet: Bitmap) {
     var facingRight = true
     var isSlashing = false
     var health = 5
-    var maxHealth = 5
+    val maxHealth = 5
+    var soul = 33
+    val maxSoul = 100
 
-    private val speed = 14f
-    private val jumpForce = -28f
-    private val gravity = 1.2f
+    private val speed = 15f
+    private val jumpForce = -29f
+    private val gravity = 1.3f
 
-    private var animTimer = 0f
-    private var currentFrame = 0
+    private var slashTimer = 0
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val slashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(190, 240, 248, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = 14f
+    }
 
-    private val cols = 10
-    private val rows = 10
-    private val frameWidth = (sheet.width / cols).coerceAtLeast(1)
-    private val frameHeight = (sheet.height / rows).coerceAtLeast(1)
-
-    private val srcRect = Rect()
-    private val destRect = RectF()
+    val width = 160f
+    val height = 160f
 
     fun update(moveDir: Float, jumpRequested: Boolean, attackRequested: Boolean, groundY: Float) {
         vx = moveDir * speed
@@ -40,9 +42,7 @@ class Knight(private val sheet: Bitmap) {
         if (vx > 0.1f) facingRight = true
         if (vx < -0.1f) facingRight = false
 
-        if (!isGrounded) {
-            vy += gravity
-        }
+        if (!isGrounded) vy += gravity
 
         if (jumpRequested && isGrounded) {
             vy = jumpForce
@@ -51,47 +51,48 @@ class Knight(private val sheet: Bitmap) {
 
         y += vy
 
-        val renderHeight = 180f
-        if (y + renderHeight >= groundY) {
-            y = groundY - renderHeight
+        if (y + height >= groundY) {
+            y = groundY - height
             vy = 0f
             isGrounded = true
         }
 
         if (attackRequested && !isSlashing) {
             isSlashing = true
-            animTimer = 0f
-            currentFrame = 0
+            slashTimer = 12
         }
 
-        animTimer += 0.25f
-        if (animTimer >= 1f) {
-            animTimer = 0f
-            currentFrame++
-            if (isSlashing && currentFrame >= 4) {
-                isSlashing = false
-                currentFrame = 0
-            }
+        if (isSlashing) {
+            slashTimer--
+            if (slashTimer <= 0) isSlashing = false
+        }
+    }
+
+    fun getAttackHitbox(): RectF? {
+        if (!isSlashing) return null
+        return if (facingRight) {
+            RectF(x + width * 0.7f, y, x + width + 100f, y + height)
+        } else {
+            RectF(x - 100f, y, x + width * 0.3f, y + height)
         }
     }
 
     fun draw(canvas: Canvas) {
-        val row = if (isSlashing) 4 else if (!isGrounded) 3 else if (kotlin.math.abs(vx) > 0.1f) 1 else 0
-        val col = currentFrame % 5
-
-        val srcLeft = (col * frameWidth).coerceIn(0, sheet.width - frameWidth)
-        val srcTop = (row * frameHeight).coerceIn(0, sheet.height - frameHeight)
-        srcRect.set(srcLeft, srcTop, srcLeft + frameWidth, srcTop + frameHeight)
-
-        val renderWidth = 180f
-        val renderHeight = 180f
-        destRect.set(x, y, x + renderWidth, y + renderHeight)
+        val dest = RectF(x, y, x + width, y + height)
+        val src = Rect(0, 0, sheet.width, sheet.height)
 
         canvas.save()
         if (!facingRight) {
-            canvas.scale(-1f, 1f, destRect.centerX(), destRect.centerY())
+            canvas.scale(-1f, 1f, dest.centerX(), dest.centerY())
         }
-        canvas.drawBitmap(sheet, srcRect, destRect, paint)
+        canvas.drawBitmap(sheet, src, dest, paint)
         canvas.restore()
+
+        if (isSlashing) {
+            val slashArc = getAttackHitbox()
+            if (slashArc != null) {
+                canvas.drawArc(slashArc, if (facingRight) -60f else 120f, 120f, false, slashPaint)
+            }
+        }
     }
 }
