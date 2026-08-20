@@ -2,7 +2,7 @@ package com.ayush.minihk
 
 import android.graphics.*
 
-class Knight(private val sheet: Bitmap) {
+class Knight(private val sheet: Bitmap?) {
     var x = 300f
     var y = 600f
     var vx = 0f
@@ -15,20 +15,36 @@ class Knight(private val sheet: Bitmap) {
     var soul = 33
     val maxSoul = 100
 
-    private val speed = 15f
-    private val jumpForce = -29f
+    private val speed = 16f
+    private val jumpForce = -30f
     private val gravity = 1.3f
 
     private var slashTimer = 0
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val slashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(190, 240, 248, 255)
-        style = Paint.Style.STROKE
-        strokeWidth = 14f
-    }
+    private var animFrame = 0
+    private var animTick = 0
 
-    val width = 160f
-    val height = 160f
+    // Extracted Frames from knight.png
+    private var idleFrame: Bitmap? = null
+    private var walkFrames = mutableListOf<Bitmap>()
+    private var slashFrame: Bitmap? = null
+
+    val width = 140f
+    val height = 150f
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
+    init {
+        if (sheet != null) {
+            // Slice top-left idle frame
+            idleFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.01f, 0.07f, 0.07f)
+            // Slice walk frames
+            for (i in 0..3) {
+                val f = SpriteHelper.cropFrame(sheet, 0.01f + i * 0.075f, 0.01f, 0.07f, 0.07f)
+                if (f != null) walkFrames.add(f)
+            }
+            // Slice wide nail slash frame
+            slashFrame = SpriteHelper.cropFrame(sheet, 0.15f, 0.32f, 0.10f, 0.08f)
+        }
+    }
 
     fun update(moveDir: Float, jumpRequested: Boolean, attackRequested: Boolean, groundY: Float) {
         vx = moveDir * speed
@@ -36,6 +52,15 @@ class Knight(private val sheet: Bitmap) {
 
         if (vx > 0.1f) facingRight = true
         if (vx < -0.1f) facingRight = false
+
+        if (Math.abs(vx) > 0.1f && isGrounded) {
+            animTick++
+            if (animTick % 5 == 0) {
+                animFrame = (animFrame + 1) % (walkFrames.size.coerceAtLeast(1))
+            }
+        } else {
+            animFrame = 0
+        }
 
         if (!isGrounded) vy += gravity
 
@@ -66,28 +91,35 @@ class Knight(private val sheet: Bitmap) {
     fun getAttackHitbox(): RectF? {
         if (!isSlashing) return null
         return if (facingRight) {
-            RectF(x + width * 0.7f, y, x + width + 100f, y + height)
+            RectF(x + width * 0.6f, y, x + width + 130f, y + height)
         } else {
-            RectF(x - 100f, y, x + width * 0.3f, y + height)
+            RectF(x - 130f, y, x + width * 0.4f, y + height)
         }
     }
 
     fun draw(canvas: Canvas) {
         val dest = RectF(x, y, x + width, y + height)
-        val src = Rect(0, 0, sheet.width, sheet.height)
 
-        canvas.save()
-        if (!facingRight) {
-            canvas.scale(-1f, 1f, dest.centerX(), dest.centerY())
+        val frameToDraw = when {
+            isSlashing && slashFrame != null -> slashFrame
+            Math.abs(vx) > 0.1f && walkFrames.isNotEmpty() -> walkFrames[animFrame]
+            else -> idleFrame
         }
-        canvas.drawBitmap(sheet, src, dest, paint)
-        canvas.restore()
 
-        if (isSlashing) {
-            val slashArc = getAttackHitbox()
-            if (slashArc != null) {
-                canvas.drawArc(slashArc, if (facingRight) -60f else 120f, 120f, false, slashPaint)
+        if (frameToDraw != null) {
+            canvas.save()
+            if (!facingRight) {
+                canvas.scale(-1f, 1f, dest.centerX(), dest.centerY())
             }
+            canvas.drawBitmap(frameToDraw, null, dest, paint)
+            canvas.restore()
+        } else {
+            // Procedural Vector Fallback
+            paint.style = Paint.Style.FILL
+            paint.color = Color.parseColor("#1B1B2F")
+            canvas.drawOval(RectF(x + 30f, y + 50f, x + width - 30f, y + height), paint)
+            paint.color = Color.WHITE
+            canvas.drawOval(RectF(x + 35f, y + 10f, x + width - 35f, y + 70f), paint)
         }
     }
 }

@@ -21,7 +21,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val uiPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true }
     private val buttonPaint = Paint().apply {
-        color = Color.argb(120, 255, 255, 255)
+        color = Color.argb(130, 255, 255, 255)
         style = Paint.Style.FILL
     }
     private val buttonBorderPaint = Paint().apply {
@@ -30,12 +30,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         strokeWidth = 4f
     }
     private val soulFillPaint = Paint().apply { color = Color.WHITE }
+    private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var leftPressed = false
     private var rightPressed = false
     private var jumpPressed = false
     private var attackPressed = false
     private var spellPressed = false
+    private var invulnerableTimer = 0
 
     init {
         holder.addCallback(this)
@@ -54,18 +56,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun initGame() {
-        try {
-            val bgStream = context.assets.open("background.png")
-            bgBitmap = BitmapFactory.decodeStream(bgStream)
-            bgStream.close()
-        } catch (_: Exception) {}
+        bgBitmap = SpriteHelper.loadBitmap(context, "background.png")
+        val knightSheet = SpriteHelper.loadBitmap(context, "knight.png")
+        val hornetSheet = SpriteHelper.loadBitmap(context, "hornet.png")
 
-        val knightBitmap = SpriteHelper.loadAndChromaKey(context, "knight.png", SpriteHelper.KeyType.KNIGHT_WHITE)
-        val hornetBitmap = SpriteHelper.loadAndChromaKey(context, "hornet.png", SpriteHelper.KeyType.HORNET_TEAL)
-
-        knight = Knight(knightBitmap)
-        hornet = Hornet(hornetBitmap)
+        knight = Knight(knightSheet)
+        hornet = Hornet(hornetSheet)
         spells.clear()
+        invulnerableTimer = 0
     }
 
     fun resume() {
@@ -88,7 +86,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             if (!holder.surface.isValid) continue
             val canvas = holder.lockCanvas() ?: continue
 
-            val groundY = height * 0.84f
+            val groundY = height * 0.82f
 
             when (gameState) {
                 GameState.MENU -> drawMenu(canvas)
@@ -112,13 +110,15 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val k = knight ?: return
         val h = hornet ?: return
 
+        if (invulnerableTimer > 0) invulnerableTimer--
+
         val moveDir = (if (rightPressed) 1f else 0f) - (if (leftPressed) 1f else 0f)
         k.update(moveDir, jumpPressed, attackPressed, groundY)
         h.update(k.x, groundY)
 
         if (spellPressed && k.soul >= 33) {
             k.soul -= 33
-            spells.add(Spell(k.x + if (k.facingRight) 100f else -60f, k.y + 50f, k.facingRight))
+            spells.add(Spell(k.x + if (k.facingRight) 110f else -70f, k.y + 40f, k.facingRight))
         }
 
         val iterator = spells.iterator()
@@ -126,7 +126,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             val spell = iterator.next()
             spell.update(width.toFloat())
             if (RectF.intersects(RectF(spell.x, spell.y, spell.x + spell.width, spell.y + spell.height), h.getHitbox())) {
-                h.health -= 25
+                h.health -= 35
                 spell.isActive = false
             }
             if (!spell.isActive) iterator.remove()
@@ -134,15 +134,17 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
 
         val slashBox = k.getAttackHitbox()
         if (slashBox != null && RectF.intersects(slashBox, h.getHitbox())) {
-            h.health -= 1
-            if (k.soul < k.maxSoul) k.soul = (k.soul + 2).coerceAtMost(k.maxSoul)
+            h.health -= 10
+            if (k.soul < k.maxSoul) {
+                k.soul = (k.soul + 11).coerceAtMost(k.maxSoul)
+            }
         }
 
-        if (RectF.intersects(RectF(k.x, k.y, k.x + k.width, k.y + k.height), h.getHitbox())) {
-            if (h.state == Hornet.State.DIVE_ATTACK) {
-                k.health -= 1
-                k.x += if (h.facingRight) 120f else -120f
-            }
+        if (invulnerableTimer <= 0 && RectF.intersects(RectF(k.x, k.y, k.x + k.width, k.y + k.height), h.getHitbox())) {
+            k.health -= 1
+            invulnerableTimer = 40
+            k.vy = -14f
+            k.x += if (h.facingRight) 100f else -100f
         }
 
         if (h.health <= 0) gameState = GameState.VICTORY
@@ -160,7 +162,9 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             canvas.drawColor(Color.rgb(14, 18, 28))
         }
 
-        knight?.draw(canvas)
+        if (invulnerableTimer % 4 < 2) {
+            knight?.draw(canvas)
+        }
         hornet?.draw(canvas)
         spells.forEach { it.draw(canvas) }
 
@@ -171,33 +175,44 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val k = knight ?: return
         val h = hornet ?: return
 
-        val vesselX = 70f
-        val vesselY = 70f
-        val vesselRadius = 40f
-        buttonPaint.color = Color.argb(160, 20, 24, 35)
+        val vesselX = 75f
+        val vesselY = 75f
+        val vesselRadius = 42f
+        buttonPaint.color = Color.argb(180, 20, 24, 35)
         canvas.drawCircle(vesselX, vesselY, vesselRadius, buttonPaint)
         val fillPercent = k.soul.toFloat() / k.maxSoul
         canvas.drawCircle(vesselX, vesselY, vesselRadius * fillPercent, soulFillPaint)
         canvas.drawCircle(vesselX, vesselY, vesselRadius, buttonBorderPaint)
 
         for (i in 0 until k.maxHealth) {
-            val maskX = 140f + (i * 45f)
-            uiPaint.color = if (i < k.health) Color.WHITE else Color.DKGRAY
-            canvas.drawRoundRect(RectF(maskX, 45f, maskX + 35f, 95f), 12f, 12f, uiPaint)
+            val maskX = 150f + (i * 48f)
+            val maskY = 75f
+            val isActive = i < k.health
+
+            maskPaint.style = Paint.Style.FILL
+            maskPaint.color = if (isActive) Color.WHITE else Color.rgb(45, 50, 65)
+            canvas.drawOval(RectF(maskX - 16f, maskY - 24f, maskX + 16f, maskY + 24f), maskPaint)
+
+            maskPaint.color = if (isActive) Color.BLACK else Color.rgb(20, 22, 30)
+            canvas.drawOval(RectF(maskX - 10f, maskY - 6f, maskX - 2f, maskY + 8f), maskPaint)
+            canvas.drawOval(RectF(maskX + 2f, maskY - 6f, maskX + 10f, maskY + 8f), maskPaint)
         }
 
-        val barW = 400f
-        val barH = 22f
+        val barW = 420f
+        val barH = 20f
         val barX = width - barW - 60f
         val barY = 65f
+
         uiPaint.color = Color.rgb(220, 70, 80)
-        uiPaint.textSize = 30f
-        canvas.drawText("HORNET SENTINEL", barX, barY - 12f, uiPaint)
-        buttonPaint.color = Color.DKGRAY
-        canvas.drawRect(barX, barY, barX + barW, barY + barH, buttonPaint)
-        val hpPercent = (h.health.toFloat() / h.maxHealth).coerceAtLeast(0f)
-        uiPaint.color = Color.rgb(220, 60, 70)
-        canvas.drawRect(barX, barY, barX + (barW * hpPercent), barY + barH, uiPaint)
+        uiPaint.textSize = 26f
+        canvas.drawText("HORNET // PROTECTOR", barX, barY - 10f, uiPaint)
+
+        buttonPaint.color = Color.rgb(30, 35, 45)
+        canvas.drawRoundRect(RectF(barX, barY, barX + barW, barY + barH), 6f, 6f, buttonPaint)
+
+        val hpPercent = (h.health.toFloat() / h.maxHealth).coerceIn(0f, 1f)
+        uiPaint.color = Color.rgb(215, 45, 55)
+        canvas.drawRoundRect(RectF(barX, barY, barX + (barW * hpPercent), barY + barH), 6f, 6f, uiPaint)
 
         val btnY = height - 170f
         val btnH = 110f
@@ -225,25 +240,25 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun drawMenu(canvas: Canvas) {
         canvas.drawColor(Color.rgb(10, 12, 18))
         uiPaint.color = Color.WHITE
-        uiPaint.textSize = 60f
+        uiPaint.textSize = 55f
         val title = "HOLLOW KNIGHT // HORNET DUEL"
         canvas.drawText(title, width / 2f - uiPaint.measureText(title) / 2f, height * 0.4f, uiPaint)
 
-        uiPaint.textSize = 34f
+        uiPaint.textSize = 30f
         uiPaint.color = Color.rgb(0, 229, 255)
         val start = "TAP ANYWHERE TO CHALLENGE"
         canvas.drawText(start, width / 2f - uiPaint.measureText(start) / 2f, height * 0.6f, uiPaint)
     }
 
     private fun drawEndScreen(canvas: Canvas, msg: String, color: Int) {
-        canvas.drawColor(Color.argb(200, 0, 0, 0))
+        canvas.drawColor(Color.argb(210, 0, 0, 0))
         uiPaint.color = color
         uiPaint.textSize = 55f
         canvas.drawText(msg, width / 2f - uiPaint.measureText(msg) / 2f, height * 0.45f, uiPaint)
 
         uiPaint.color = Color.WHITE
-        uiPaint.textSize = 32f
-        val retry = "TAP TO RESTART"
+        uiPaint.textSize = 30f
+        val retry = "TAP TO RETRY"
         canvas.drawText(retry, width / 2f - uiPaint.measureText(retry) / 2f, height * 0.65f, uiPaint)
     }
 

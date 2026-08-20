@@ -4,40 +4,55 @@ import android.content.Context
 import android.graphics.*
 
 object SpriteHelper {
-    fun loadAndChromaKey(context: Context, filename: String, keyType: KeyType): Bitmap {
+
+    fun loadBitmap(context: Context, filename: String): Bitmap? {
         return try {
-            val inputStream = context.assets.open(filename)
-            val options = BitmapFactory.Options().apply {
-                inPreferredConfig = Bitmap.Config.RGB_565
-                inSampleSize = 1
+            context.assets.open(filename).use { inputStream ->
+                val options = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeStream(inputStream, null, options)
             }
-            val original = BitmapFactory.decodeStream(inputStream, null, options)
-            inputStream.close()
-
-            original ?: createProceduralPlaceholder(filename)
         } catch (_: Exception) {
-            createProceduralPlaceholder(filename)
+            null
         }
     }
 
-    private fun createProceduralPlaceholder(name: String): Bitmap {
-        val bmp = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        if (name.contains("knight")) {
-            paint.color = Color.WHITE
-            canvas.drawCircle(128f, 100f, 60f, paint)
-            paint.color = Color.BLACK
-            canvas.drawCircle(110f, 95f, 15f, paint)
-            canvas.drawCircle(146f, 95f, 15f, paint)
-        } else {
-            paint.color = Color.rgb(200, 40, 50)
-            canvas.drawCircle(128f, 128f, 70f, paint)
-            paint.color = Color.WHITE
-            canvas.drawCircle(128f, 80f, 35f, paint)
+    fun removeChromaKey(src: Bitmap, targetColor: Int, tolerance: Int = 45): Bitmap {
+        val copy = src.copy(Bitmap.Config.ARGB_8888, true)
+        val width = copy.width
+        val height = copy.height
+        val pixels = IntArray(width * height)
+        copy.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        val tr = Color.red(targetColor)
+        val tg = Color.green(targetColor)
+        val tb = Color.blue(targetColor)
+
+        for (i in pixels.indices) {
+            val c = pixels[i]
+            val r = Color.red(c)
+            val g = Color.green(c)
+            val b = Color.blue(c)
+            if (Math.abs(r - tr) < tolerance && Math.abs(g - tg) < tolerance && Math.abs(b - tb) < tolerance) {
+                pixels[i] = Color.TRANSPARENT
+            }
         }
-        return bmp
+        copy.setPixels(pixels, 0, width, 0, 0, width, height)
+        return copy
     }
 
-    enum class KeyType { NONE, HORNET_TEAL, KNIGHT_WHITE }
+    // Extract a normalized percentage region from a sprite sheet
+    fun cropFrame(sheet: Bitmap?, rx: Float, ry: Float, rw: Float, rh: Float): Bitmap? {
+        if (sheet == null) return null
+        return try {
+            val sx = (sheet.width * rx).toInt().coerceIn(0, sheet.width - 1)
+            val sy = (sheet.height * ry).toInt().coerceIn(0, sheet.height - 1)
+            val sw = (sheet.width * rw).toInt().coerceAtMost(sheet.width - sx)
+            val sh = (sheet.height * rh).toInt().coerceAtMost(sheet.height - sy)
+            Bitmap.createBitmap(sheet, sx, sy, sw, sh)
+        } catch (_: Exception) {
+            null
+        }
+    }
 }
