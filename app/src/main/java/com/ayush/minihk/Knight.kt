@@ -1,11 +1,6 @@
 package com.ayush.minihk
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.RectF
+import android.graphics.*
 
 class Knight(private val sheet: Bitmap) {
     var x = 300f

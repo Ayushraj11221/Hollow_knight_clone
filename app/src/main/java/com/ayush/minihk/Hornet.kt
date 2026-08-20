@@ -1,11 +1,6 @@
 package com.ayush.minihk
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.RectF
+import android.graphics.*
 import kotlin.random.Random
 
 class Hornet(private val sheet: Bitmap) {
