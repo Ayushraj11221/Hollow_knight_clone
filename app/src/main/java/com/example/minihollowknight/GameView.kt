@@ -10,16 +10,16 @@ import kotlin.math.hypot
 
 class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(context, attrs), SurfaceHolder.Callback, Runnable {
 
-    private var isPlaying = false
+    @Volatile private var isPlaying = false
     private var gameThread: Thread? = null
 
-    private lateinit var knight: Knight
-    private lateinit var hornet: Hornet
+    // Direct initialization (Eliminates UninitializedPropertyAccessException)
+    private val knight = Knight(180f, 400f)
+    private val hornet = Hornet(800f, 400f)
 
-    // Touch Controls
     private var leftTouchId = -1
-    private var joystickBase = PointF(200f, 600f)
-    private var joystickPos = PointF(200f, 600f)
+    private var joystickBase = PointF(180f, 550f)
+    private var joystickPos = PointF(180f, 550f)
 
     private val jumpBtn = RectF()
     private val attackBtn = RectF()
@@ -28,30 +28,44 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
     private val paint = Paint().apply { isAntiAlias = true }
     private val textPaint = Paint().apply {
         color = Color.WHITE
-        textSize = 32f
+        textSize = 30f
         typeface = Typeface.MONOSPACE
         isAntiAlias = true
     }
 
     init {
         holder.addCallback(this)
+        isFocusable = true
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        val groundY = (height - 140f).coerceAtLeast(350f)
-        knight = Knight(180f, groundY - 50f)
-        hornet = Hornet(width - 250f, groundY - 60f)
-
-        isPlaying = true
-        gameThread = Thread(this)
-        gameThread?.start()
+        resume()
     }
 
-    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {}
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
+        val groundY = (h - 140f).coerceAtLeast(350f)
+        knight.y = groundY - knight.height / 2f
+        hornet.x = (w - 250f).coerceAtLeast(400f)
+        hornet.y = groundY - hornet.height / 2f
+    }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
+        pause()
+    }
+
+    fun resume() {
+        if (!isPlaying) {
+            isPlaying = true
+            gameThread = Thread(this).apply { start() }
+        }
+    }
+
+    fun pause() {
         isPlaying = false
-        gameThread?.join()
+        try {
+            gameThread?.join(500)
+            gameThread = null
+        } catch (_: Exception) {}
     }
 
     override fun run() {
@@ -65,9 +79,10 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
     }
 
     private fun update() {
-        val groundY = (height - 140f).coerceAtLeast(350f)
+        val screenW = if (width > 0) width.toFloat() else 1920f
+        val screenH = if (height > 0) height.toFloat() else 1080f
+        val groundY = (screenH - 140f).coerceAtLeast(350f)
 
-        // Joystick Input
         val dx = joystickPos.x - joystickBase.x
         if (Math.abs(dx) > 20f && !knight.isDashing) {
             knight.vx = (dx / 75f).coerceIn(-1f, 1f) * 12f
@@ -76,19 +91,17 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
             knight.vx = 0f
         }
 
-        knight.update(groundY, width.toFloat())
-        hornet.update(knight.x, knight.y, groundY, width.toFloat())
+        knight.update(groundY, screenW)
+        hornet.update(knight.x, knight.y, groundY, screenW)
 
-        // Nail Slash vs Hornet Collision
         val slashBox = knight.getSlashHitbox()
         if (slashBox != null && RectF.intersects(slashBox, hornet.getHitbox())) {
             if (hornet.hp > 0) {
                 hornet.hp = (hornet.hp - 1).coerceAtLeast(0)
-                hornet.x += if (knight.facingRight) 15f else -15f // Knockback
+                hornet.x += if (knight.facingRight) 15f else -15f
             }
         }
 
-        // Hornet / Needle vs Knight Collision
         if (knight.invulnerableTimer <= 0) {
             val needleBox = hornet.getNeedleHitbox()
             if (RectF.intersects(knight.getHitbox(), hornet.getHitbox()) ||
@@ -105,80 +118,77 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         if (!holder.surface.isValid) return
         val canvas = holder.lockCanvas() ?: return
 
-        val groundY = (height - 140f).coerceAtLeast(350f)
+        try {
+            val screenW = width.toFloat()
+            val screenH = height.toFloat()
+            val groundY = (screenH - 140f).coerceAtLeast(350f)
 
-        // Background
-        canvas.drawColor(Color.parseColor("#070712"))
+            canvas.drawColor(Color.parseColor("#070712"))
 
-        // Floor Platform
-        paint.style = Paint.Style.FILL
-        paint.color = Color.parseColor("#12121E")
-        canvas.drawRect(0f, groundY, width.toFloat(), height.toFloat(), paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.parseColor("#12121E")
+            canvas.drawRect(0f, groundY, screenW, screenH, paint)
 
-        paint.color = Color.parseColor("#00E5FF")
-        paint.strokeWidth = 3f
-        canvas.drawLine(0f, groundY, width.toFloat(), groundY, paint)
-
-        // Characters
-        knight.draw(canvas, paint)
-        hornet.draw(canvas, paint)
-
-        // HUD: Knight Masks (HP)
-        for (i in 0 until knight.maxHp) {
-            paint.style = if (i < knight.hp) Paint.Style.FILL else Paint.Style.STROKE
-            paint.color = Color.WHITE
+            paint.color = Color.parseColor("#00E5FF")
             paint.strokeWidth = 3f
-            canvas.drawCircle(60f + i * 40f, 60f, 14f, paint)
+            canvas.drawLine(0f, groundY, screenW, groundY, paint)
+
+            knight.draw(canvas, paint)
+            hornet.draw(canvas, paint)
+
+            for (i in 0 until knight.maxHp) {
+                paint.style = if (i < knight.hp) Paint.Style.FILL else Paint.Style.STROKE
+                paint.color = Color.WHITE
+                paint.strokeWidth = 3f
+                canvas.drawCircle(60f + i * 36f, 50f, 12f, paint)
+            }
+
+            val barW = 380f
+            val barH = 12f
+            val barX = screenW / 2f - barW / 2f
+            val barY = 40f
+
+            paint.style = Paint.Style.FILL
+            paint.color = Color.parseColor("#33FFFFFF")
+            canvas.drawRoundRect(RectF(barX, barY, barX + barW, barY + barH), 6f, 6f, paint)
+
+            paint.color = Color.parseColor("#B71C1C")
+            val fillW = (hornet.hp.toFloat() / hornet.maxHp.toFloat()) * barW
+            canvas.drawRoundRect(RectF(barX, barY, barX + fillW, barY + barH), 6f, 6f, paint)
+
+            canvas.drawText("HORNET // PROTECTOR", barX + 60f, barY + 38f, textPaint)
+
+            drawControls(canvas, screenW, screenH)
+        } finally {
+            holder.unlockCanvasAndPost(canvas)
         }
-
-        // HUD: Hornet Boss Health Bar
-        val barW = 400f
-        val barH = 14f
-        val barX = width / 2f - barW / 2f
-        val barY = 50f
-
-        paint.style = Paint.Style.FILL
-        paint.color = Color.parseColor("#33FFFFFF")
-        canvas.drawRoundRect(RectF(barX, barY, barX + barW, barY + barH), 6f, 6f, paint)
-
-        paint.color = Color.parseColor("#B71C1C")
-        val fillW = (hornet.hp.toFloat() / hornet.maxHp.toFloat()) * barW
-        canvas.drawRoundRect(RectF(barX, barY, barX + fillW, barY + barH), 6f, 6f, paint)
-
-        canvas.drawText("HORNET // PROTECTOR", barX + 70f, barY + 45f, textPaint)
-
-        // Controls
-        drawControls(canvas)
-
-        holder.unlockCanvasAndPost(canvas)
     }
 
-    private fun drawControls(canvas: Canvas) {
-        joystickBase.set(180f, height - 160f)
+    private fun drawControls(canvas: Canvas, w: Float, h: Float) {
+        joystickBase.set(160f, h - 140f)
         if (leftTouchId == -1) joystickPos.set(joystickBase)
 
         paint.style = Paint.Style.STROKE
         paint.color = Color.parseColor("#44FFFFFF")
         paint.strokeWidth = 4f
-        canvas.drawCircle(joystickBase.x, joystickBase.y, 75f, paint)
+        canvas.drawCircle(joystickBase.x, joystickBase.y, 70f, paint)
 
         paint.style = Paint.Style.FILL
         paint.color = Color.parseColor("#6600E5FF")
-        canvas.drawCircle(joystickPos.x, joystickPos.y, 35f, paint)
+        canvas.drawCircle(joystickPos.x, joystickPos.y, 32f, paint)
 
-        // Right Action Buttons
-        jumpBtn.set(width - 340f, height - 190f, width - 240f, height - 90f)
-        attackBtn.set(width - 220f, height - 190f, width - 120f, height - 90f)
-        dashBtn.set(width - 100f, height - 190f, width - 10f, height - 90f)
+        jumpBtn.set(w - 320f, h - 170f, w - 230f, h - 80f)
+        attackBtn.set(w - 210f, h - 170f, w - 120f, h - 80f)
+        dashBtn.set(w - 100f, h - 170f, w - 10f, h - 80f)
 
         paint.color = Color.parseColor("#44FFFFFF")
-        canvas.drawRoundRect(jumpBtn, 20f, 20f, paint)
-        canvas.drawRoundRect(attackBtn, 20f, 20f, paint)
-        canvas.drawRoundRect(dashBtn, 20f, 20f, paint)
+        canvas.drawRoundRect(jumpBtn, 16f, 16f, paint)
+        canvas.drawRoundRect(attackBtn, 16f, 16f, paint)
+        canvas.drawRoundRect(dashBtn, 16f, 16f, paint)
 
-        canvas.drawText("JUMP", jumpBtn.left + 12f, jumpBtn.centerY() + 10f, textPaint)
-        canvas.drawText("NAIL", attackBtn.left + 12f, attackBtn.centerY() + 10f, textPaint)
-        canvas.drawText("DASH", dashBtn.left + 12f, dashBtn.centerY() + 10f, textPaint)
+        canvas.drawText("JUMP", jumpBtn.left + 8f, jumpBtn.centerY() + 10f, textPaint)
+        canvas.drawText("NAIL", attackBtn.left + 8f, attackBtn.centerY() + 10f, textPaint)
+        canvas.drawText("DASH", dashBtn.left + 8f, dashBtn.centerY() + 10f, textPaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -207,10 +217,10 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
                         val px = event.getX(i)
                         val py = event.getY(i)
                         val dist = hypot(px - joystickBase.x, py - joystickBase.y)
-                        if (dist < 80f) {
+                        if (dist < 75f) {
                             joystickPos.set(px, py)
                         } else {
-                            val ratio = 80f / dist
+                            val ratio = 75f / dist
                             joystickPos.set(
                                 joystickBase.x + (px - joystickBase.x) * ratio,
                                 joystickBase.y + (py - joystickBase.y) * ratio

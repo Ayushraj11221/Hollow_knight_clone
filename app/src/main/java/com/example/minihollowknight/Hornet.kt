@@ -4,8 +4,7 @@ import android.graphics.*
 import kotlin.math.*
 import kotlin.random.Random
 
-class Hornet(var x: Float, var y: Float) {
-
+class Hornet(var x: Float = 800f, var y: Float = 300f) {
     enum class State { IDLE, JUMP_ANTICIPATION, NEEDLE_THROW, NEEDLE_RETRACT, DIVE_ANTICIPATION, DIVE_ATTACK, RETREAT }
 
     var state = State.IDLE
@@ -25,15 +24,14 @@ class Hornet(var x: Float, var y: Float) {
 
     fun update(knightX: Float, knightY: Float, groundY: Float, screenWidth: Float) {
         facingRight = knightX > x
+        val effectiveGround = if (groundY > 100f) groundY else 600f
 
         when (state) {
             State.IDLE -> {
                 vx = 0f
                 vy += 1.2f
                 stateTimer--
-                if (stateTimer <= 0) {
-                    pickNextAttack(knightX)
-                }
+                if (stateTimer <= 0) pickNextAttack(knightX)
             }
             State.JUMP_ANTICIPATION -> {
                 stateTimer--
@@ -46,10 +44,8 @@ class Hornet(var x: Float, var y: Float) {
             }
             State.NEEDLE_THROW -> {
                 vx = 0f
-                needleX += if (facingRight) 32f else -32f
-                if (abs(needleX - x) > 550f) {
-                    state = State.NEEDLE_RETRACT
-                }
+                needleX += if (facingRight) 30f else -30f
+                if (abs(needleX - x) > 500f) state = State.NEEDLE_RETRACT
             }
             State.NEEDLE_RETRACT -> {
                 val dx = x - needleX
@@ -67,17 +63,17 @@ class Hornet(var x: Float, var y: Float) {
                 if (stateTimer <= 0) {
                     state = State.DIVE_ATTACK
                     val dx = knightX - x
-                    val dy = (groundY - 50f) - y
-                    val dist = hypot(dx, dy)
-                    vx = (dx / dist) * 28f
-                    vy = (dy / dist) * 28f
+                    val dy = (effectiveGround - 50f) - y
+                    val dist = max(hypot(dx, dy), 1f)
+                    vx = (dx / dist) * 26f
+                    vy = (dy / dist) * 26f
                 }
             }
             State.DIVE_ATTACK -> {
                 x += vx
                 y += vy
-                if (y + height / 2f >= groundY) {
-                    y = groundY - height / 2f
+                if (y + height / 2f >= effectiveGround) {
+                    y = effectiveGround - height / 2f
                     vx = 0f
                     vy = 0f
                     state = State.IDLE
@@ -88,8 +84,8 @@ class Hornet(var x: Float, var y: Float) {
                 vy += 1.2f
                 x += vx
                 y += vy
-                if (y + height / 2f >= groundY) {
-                    y = groundY - height / 2f
+                if (y + height / 2f >= effectiveGround) {
+                    y = effectiveGround - height / 2f
                     vy = 0f
                     vx = 0f
                     state = State.IDLE
@@ -98,41 +94,36 @@ class Hornet(var x: Float, var y: Float) {
             }
         }
 
-        // Ground Clamp
         if (state != State.DIVE_ATTACK && state != State.RETREAT) {
             y += vy
-            if (y + height / 2f >= groundY) {
-                y = groundY - height / 2f
+            if (y + height / 2f >= effectiveGround) {
+                y = effectiveGround - height / 2f
                 vy = 0f
             }
         }
-        x = x.coerceIn(100f, screenWidth - 100f)
+        val maxW = if (screenWidth > 100f) screenWidth else 1920f
+        x = x.coerceIn(80f, maxW - 80f)
     }
 
     private fun pickNextAttack(knightX: Float) {
         val r = Random.nextFloat()
         if (r < 0.45f) {
-            // Needle Throw
             state = State.NEEDLE_THROW
             isNeedleThrown = true
             needleX = x
             needleY = y - 10f
         } else if (r < 0.80f) {
-            // Aerial Dive
-            y = 250f
+            y = 220f
             vy = 0f
             state = State.DIVE_ANTICIPATION
             stateTimer = 18
         } else {
-            // Jump
             state = State.JUMP_ANTICIPATION
             stateTimer = 12
         }
     }
 
-    fun getHitbox(): RectF {
-        return RectF(x - width / 2f, y - height / 2f, x + width / 2f, y + height / 2f)
-    }
+    fun getHitbox(): RectF = RectF(x - width / 2f, y - height / 2f, x + width / 2f, y + height / 2f)
 
     fun getNeedleHitbox(): RectF? {
         if (!isNeedleThrown) return null
@@ -140,7 +131,6 @@ class Hornet(var x: Float, var y: Float) {
     }
 
     fun draw(canvas: Canvas, paint: Paint) {
-        // Red Cloak / Dress
         paint.style = Paint.Style.FILL
         paint.color = Color.parseColor("#B71C1C")
         val cloakPath = Path().apply {
@@ -151,28 +141,23 @@ class Hornet(var x: Float, var y: Float) {
         }
         canvas.drawPath(cloakPath, paint)
 
-        // White Mask Head
         paint.color = Color.WHITE
         canvas.drawOval(RectF(x - 22f, y - 65f, x + 22f, y - 20f), paint)
 
-        // Hornet Curved Horns
         val hornPath = Path().apply {
             moveTo(x - 14f, y - 55f)
             quadTo(x - 35f, y - 85f, x - 25f, y - 105f)
             lineTo(x - 6f, y - 60f)
-
             moveTo(x + 14f, y - 55f)
             quadTo(x + 35f, y - 85f, x + 25f, y - 105f)
             lineTo(x + 6f, y - 60f)
         }
         canvas.drawPath(hornPath, paint)
 
-        // Slanted Black Eyes
         paint.color = Color.BLACK
         canvas.drawOval(RectF(x - 16f, y - 48f, x - 4f, y - 32f), paint)
         canvas.drawOval(RectF(x + 4f, y - 48f, x + 16f, y - 32f), paint)
 
-        // Silk Thread & Needle
         if (isNeedleThrown) {
             paint.color = Color.WHITE
             paint.strokeWidth = 2.5f
