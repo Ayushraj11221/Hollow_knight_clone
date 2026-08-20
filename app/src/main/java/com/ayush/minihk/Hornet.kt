@@ -24,7 +24,6 @@ class Hornet(rawSheet: Bitmap?) {
         strokeWidth = 6f
     }
 
-    // Extracted Slices from hornet.png
     private var idleFrame: Bitmap? = null
     private var diveFrame: Bitmap? = null
     private var throwFrame: Bitmap? = null
@@ -33,7 +32,6 @@ class Hornet(rawSheet: Bitmap?) {
 
     init {
         if (rawSheet != null) {
-            // Chroma key out the teal background (#008080)
             val sheet = SpriteHelper.removeChromaKey(rawSheet, Color.rgb(0, 128, 128))
             idleFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.01f, 0.12f, 0.035f)
             throwFrame = SpriteHelper.cropFrame(sheet, 0.01f, 0.44f, 0.12f, 0.035f)
@@ -96,7 +94,6 @@ class Hornet(rawSheet: Bitmap?) {
 
     fun draw(canvas: Canvas) {
         val dest = RectF(x, y, x + width, y + height)
-
         val frameToDraw = when (state) {
             State.DIVE_ATTACK -> diveFrame ?: idleFrame
             State.THROW_NEEDLE -> throwFrame ?: idleFrame
@@ -111,7 +108,6 @@ class Hornet(rawSheet: Bitmap?) {
             canvas.drawBitmap(frameToDraw, null, dest, paint)
             canvas.restore()
         } else {
-            // Procedural Vector Fallback
             paint.style = Paint.Style.FILL
             paint.color = Color.parseColor("#B71C1C")
             canvas.drawOval(RectF(x + 20f, y + 40f, x + width - 20f, y + height), paint)

@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.*
 
 object SpriteHelper {
-
     fun loadBitmap(context: Context, filename: String): Bitmap? {
         return try {
             context.assets.open(filename).use { inputStream ->
@@ -42,7 +41,6 @@ object SpriteHelper {
         return copy
     }
 
-    // Extract a normalized percentage region from a sprite sheet
     fun cropFrame(sheet: Bitmap?, rx: Float, ry: Float, rw: Float, rh: Float): Bitmap? {
         if (sheet == null) return null
         return try {
