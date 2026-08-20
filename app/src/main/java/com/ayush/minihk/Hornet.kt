@@ -2,14 +2,14 @@ package com.ayush.minihk
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import kotlin.random.Random
 
 class Hornet(private val sheet: Bitmap) {
     var x = 1400f
-    var y = 700f
+    var y = 600f
     var vx = 0f
     var vy = 0f
     var health = 100
@@ -21,10 +21,14 @@ class Hornet(private val sheet: Bitmap) {
     private var animFrame = 0
     private var animTimer = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val flipMatrix = Matrix()
 
-    private val frameWidth = (sheet.width / 10).coerceAtLeast(1)
-    private val frameHeight = (sheet.height / 35).coerceAtLeast(1)
+    private val cols = 10
+    private val rows = 25
+    private val frameWidth = (sheet.width / cols).coerceAtLeast(1)
+    private val frameHeight = (sheet.height / rows).coerceAtLeast(1)
+
+    private val srcRect = Rect()
+    private val destRect = RectF()
 
     enum class State { IDLE, JUMP_ANTICIPATION, AIR_DIVE, NEEDLE_THROW, RETREAT }
 
@@ -36,44 +40,44 @@ class Hornet(private val sheet: Bitmap) {
             State.IDLE -> {
                 vx = 0f
                 vy = 0f
-                if (stateTimer > 70) {
+                if (stateTimer > 60) {
                     stateTimer = 0
                     state = if (Random.nextBoolean()) State.JUMP_ANTICIPATION else State.NEEDLE_THROW
                 }
             }
             State.JUMP_ANTICIPATION -> {
-                vy = -20f
-                vx = if (facingRight) 7f else -7f
+                vy = -22f
+                vx = if (facingRight) 8f else -8f
                 y += vy
                 x += vx
-                if (y < 350f) {
+                if (y < 300f) {
                     state = State.AIR_DIVE
                     stateTimer = 0
                 }
             }
             State.AIR_DIVE -> {
-                vy = 24f
+                vy = 26f
                 vx = if (facingRight) 18f else -18f
                 x += vx
                 y += vy
-                val bottom = y + frameHeight * 1.8f
-                if (bottom >= groundY) {
-                    y = groundY - frameHeight * 1.8f
+                val renderHeight = 220f
+                if (y + renderHeight >= groundY) {
+                    y = groundY - renderHeight
                     state = State.RETREAT
                     stateTimer = 0
                 }
             }
             State.NEEDLE_THROW -> {
                 vx = 0f
-                if (stateTimer > 50) {
+                if (stateTimer > 45) {
                     state = State.RETREAT
                     stateTimer = 0
                 }
             }
             State.RETREAT -> {
-                vx = if (facingRight) -9f else 9f
+                vx = if (facingRight) -10f else 10f
                 x += vx
-                if (stateTimer > 40) {
+                if (stateTimer > 35) {
                     state = State.IDLE
                     stateTimer = 0
                 }
@@ -83,7 +87,7 @@ class Hornet(private val sheet: Bitmap) {
         animTimer += 0.25f
         if (animTimer >= 1f) {
             animTimer = 0f
-            animFrame = (animFrame + 1) % 6
+            animFrame = (animFrame + 1) % 5
         }
     }
 
@@ -95,26 +99,21 @@ class Hornet(private val sheet: Bitmap) {
             State.NEEDLE_THROW -> 1
             State.RETREAT -> 0
         }
-        val col = animFrame % 6
+        val col = animFrame % 5
 
         val srcLeft = (col * frameWidth).coerceIn(0, sheet.width - frameWidth)
         val srcTop = (row * frameHeight).coerceIn(0, sheet.height - frameHeight)
-        val srcRect = Rect(srcLeft, srcTop, srcLeft + frameWidth, srcTop + frameHeight)
+        srcRect.set(srcLeft, srcTop, srcLeft + frameWidth, srcTop + frameHeight)
 
-        val destW = frameWidth * 2.2f
-        val destH = frameHeight * 2.2f
+        val renderWidth = 220f
+        val renderHeight = 220f
+        destRect.set(x, y, x + renderWidth, y + renderHeight)
 
         canvas.save()
         if (facingRight) {
-            flipMatrix.reset()
-            flipMatrix.preScale(-1f, 1f)
-            flipMatrix.postTranslate(x + destW, y)
-            val subBitmap = Bitmap.createBitmap(sheet, srcRect.left, srcRect.top, srcRect.width(), srcRect.height())
-            canvas.drawBitmap(subBitmap, flipMatrix, paint)
-        } else {
-            val destRect = Rect(x.toInt(), y.toInt(), (x + destW).toInt(), (y + destH).toInt())
-            canvas.drawBitmap(sheet, srcRect, destRect, paint)
+            canvas.scale(-1f, 1f, destRect.centerX(), destRect.centerY())
         }
+        canvas.drawBitmap(sheet, srcRect, destRect, paint)
         canvas.restore()
     }
 }

@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background Circle / Void Plate -->
+    <path
+        android:fillColor="#0E1118"
+        android:pathData="M54,4 C26.4,4 4,26.4 4,54 C4,81.6 26.4,104 54,104 C81.6,104 104,81.6 104,54 C104,26.4 81.6,4 54,4 Z" />
+    
+    <!-- Knight Horns & Mask Outer Shell -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 C44,34 38,42 38,58 C38,72 45,82 54,82 C63,82 70,72 70,58 C70,42 64,34 54,34 Z" />
+    
+    <!-- Left Horn Arc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,48 C36,36 32,22 26,18 C28,30 34,44 40,54 Z" />
+        
+    <!-- Right Horn Arc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,48 C72,36 76,22 82,18 C80,30 74,44 68,54 Z" />
+
+    <!-- Left Hollow Eye -->
+    <path
+        android:fillColor="#0E1118"
+        android:pathData="M48,58 C48,63 45,67 43,67 C41,67 40,63 40,58 C40,53 42,49 44,49 C46,49 48,53 48,58 Z" />
+
+    <!-- Right Hollow Eye -->
+    <path
+        android:fillColor="#0E1118"
+        android:pathData="M68,58 C68,63 67,67 65,67 C63,67 60,63 60,58 C60,53 62,49 64,49 C66,49 68,53 68,58 Z" />
+</vector>
