@@ -80,27 +80,29 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             knight.draw(canvas)
             hornet.draw(canvas)
 
-            // Draw UI (Health Bars & Touch Controls)
+            // Draw UI
             drawUI(canvas)
 
             holder.unlockCanvasAndPost(canvas)
 
             try {
                 Thread.sleep(16)
-            } catch (_: InterruptedException) {}
+            } catch (e: Exception) {
+                // Handled safely
+            }
         }
     }
 
     private fun drawUI(canvas: Canvas) {
-        // Player Health Masks
+        // Player Health
         uiPaint.color = Color.WHITE
         canvas.drawText("MASKS: ${knight.health} / ${knight.maxHealth}", 60f, 80f, uiPaint)
 
-        // Boss Health Bar
+        // Boss Health
         uiPaint.color = Color.RED
         canvas.drawText("HORNET SENTINEL: ${hornet.health} HP", width - 580f, 80f, uiPaint)
 
-        // D-PAD Controls (Left / Right)
+        // D-PAD
         val btnY = height - 180f
         canvas.drawRoundRect(60f, btnY, 190f, btnY + 120f, 20f, 20f, buttonPaint)
         canvas.drawRoundRect(60f, btnY, 190f, btnY + 120f, 20f, 20f, buttonBorderPaint)
@@ -111,7 +113,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         canvas.drawRoundRect(220f, btnY, 350f, btnY + 120f, 20f, 20f, buttonBorderPaint)
         canvas.drawText(">", 270f, btnY + 75f, uiPaint)
 
-        // Action Buttons (Jump / Slash)
+        // Actions
         canvas.drawRoundRect(width - 350f, btnY, width - 220f, btnY + 120f, 20f, 20f, buttonPaint)
         canvas.drawRoundRect(width - 350f, btnY, width - 220f, btnY + 120f, 20f, 20f, buttonBorderPaint)
         canvas.drawText("JUMP", width - 330f, btnY + 75f, uiPaint)
@@ -156,6 +158,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         isPlaying = false
-        gameThread?.join()
+        try {
+            gameThread?.join()
+        } catch (e: Exception) {}
     }
 }
