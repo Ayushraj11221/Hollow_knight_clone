@@ -1,4 +1,4 @@
-package com.ayush.minihk
+package com.example.minihollowknight
 
 import android.graphics.*
 
@@ -94,7 +94,7 @@ class Knight(private val sheet: Bitmap?) {
         return if (facingRight) {
             RectF(x + width * 0.6f, y, x + width + 130f, y + height)
         } else {
-            RectF(x - 130f, y + 0f, x + width * 0.4f, y + height)
+            RectF(x - 130f, y, x + width * 0.4f, y + height)
         }
     }
 

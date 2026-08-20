@@ -1,4 +1,4 @@
-package com.ayush.minihk
+package com.example.minihollowknight
 
 import android.content.Context
 import android.graphics.*

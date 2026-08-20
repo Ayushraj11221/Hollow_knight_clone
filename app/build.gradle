@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.ayush.minihk'
+    namespace 'com.example.minihollowknight'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.ayush.minihk"
+        applicationId "com.example.minihollowknight"
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -32,4 +32,6 @@ android {
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
 }
